@@ -37,11 +37,39 @@ function createInitialStore(): DemoStore {
     userId: null
   }));
 
-  return {
-    categories,
-    transactions: [],
-    budgets: []
-  };
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7);
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7);
+
+  const catId = (name: string, type: TransactionType) => makeCategoryId(name, type);
+
+  const transactions: TransactionRow[] = [
+    // Current month
+    { id: "demo-t-01", type: "income",  categoryId: catId("Salary", "income"),    categoryName: "Salary",    amount: 50000, note: "Monthly salary",    transactionDate: `${currentMonth}-01` },
+    { id: "demo-t-02", type: "expense", categoryId: catId("Food", "expense"),     categoryName: "Food",      amount: 350,   note: "Lunch",              transactionDate: `${currentMonth}-02` },
+    { id: "demo-t-03", type: "expense", categoryId: catId("Transport", "expense"),categoryName: "Transport", amount: 120,   note: "BTS monthly pass",   transactionDate: `${currentMonth}-03` },
+    { id: "demo-t-04", type: "expense", categoryId: catId("Shopping", "expense"), categoryName: "Shopping",  amount: 1800,  note: "Clothes",            transactionDate: `${currentMonth}-05` },
+    { id: "demo-t-05", type: "expense", categoryId: catId("Bills", "expense"),    categoryName: "Bills",     amount: 2200,  note: "Electricity & water",transactionDate: `${currentMonth}-07` },
+    { id: "demo-t-06", type: "expense", categoryId: catId("Food", "expense"),     categoryName: "Food",      amount: 420,   note: "Dinner with friends",transactionDate: `${currentMonth}-08` },
+    { id: "demo-t-07", type: "income",  categoryId: catId("Freelance", "income"), categoryName: "Freelance", amount: 8000,  note: "Web project",        transactionDate: `${currentMonth}-10` },
+    { id: "demo-t-08", type: "expense", categoryId: catId("Health", "expense"),   categoryName: "Health",    amount: 650,   note: "Gym membership",     transactionDate: `${currentMonth}-12` },
+    { id: "demo-t-09", type: "expense", categoryId: catId("Food", "expense"),     categoryName: "Food",      amount: 280,   note: "Groceries",          transactionDate: `${currentMonth}-14` },
+    { id: "demo-t-10", type: "expense", categoryId: catId("Other", "expense"),    categoryName: "Other",     amount: 500,   note: "Miscellaneous",      transactionDate: `${currentMonth}-15` },
+    // Previous month
+    { id: "demo-t-11", type: "income",  categoryId: catId("Salary", "income"),    categoryName: "Salary",    amount: 50000, note: "Monthly salary",    transactionDate: `${prevMonth}-01` },
+    { id: "demo-t-12", type: "expense", categoryId: catId("Food", "expense"),     categoryName: "Food",      amount: 8500,  note: "Food (whole month)", transactionDate: `${prevMonth}-15` },
+    { id: "demo-t-13", type: "expense", categoryId: catId("Transport", "expense"),categoryName: "Transport", amount: 2400,  note: "Transport",          transactionDate: `${prevMonth}-15` },
+    { id: "demo-t-14", type: "expense", categoryId: catId("Bills", "expense"),    categoryName: "Bills",     amount: 2100,  note: "Utilities",          transactionDate: `${prevMonth}-16` },
+    { id: "demo-t-15", type: "income",  categoryId: catId("Bonus", "income"),     categoryName: "Bonus",     amount: 5000,  note: "Performance bonus",  transactionDate: `${prevMonth}-20` },
+    { id: "demo-t-16", type: "expense", categoryId: catId("Shopping", "expense"), categoryName: "Shopping",  amount: 3200,  note: "Electronics",        transactionDate: `${prevMonth}-22` },
+  ];
+
+  const budgets = [
+    { id: "demo-b-01", userId: DEMO_USER_ID, month: currentMonth, amount: 25000 },
+    { id: "demo-b-02", userId: DEMO_USER_ID, month: prevMonth,    amount: 25000 },
+  ];
+
+  return { categories, transactions, budgets };
 }
 
 function getStore() {
