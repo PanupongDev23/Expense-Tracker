@@ -93,11 +93,11 @@ export const authOptions: NextAuthOptions = {
 export async function getCurrentUser() {
   const cookieStore = await cookies();
 
-  if (isDemoMode() && cookieStore.get("expense-demo-session")?.value === "true") {
-    return {
-      id: DEMO_USER_ID,
-      email: DEMO_USER_EMAIL
-    };
+  if (isDemoMode()) {
+    if (cookieStore.get("expense-demo-session")?.value === "true") {
+      return { id: DEMO_USER_ID, email: DEMO_USER_EMAIL };
+    }
+    return null;
   }
 
   const session = await getServerSession(authOptions);
