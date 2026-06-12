@@ -23,25 +23,28 @@ export function ExpenseCategoryChart({ data }: ExpenseCategoryChartProps) {
   }
 
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer>
-        <PieChart>
-          <Pie data={data} dataKey="amount" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={3}>
-            {data.map((entry, index) => (
-              <Cell key={entry.name} fill={colors[index % colors.length]} />
-            ))}
-          </Pie>
-          <Tooltip formatter={(value) => formatMoney(Number(value))} />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+    <div className="w-full">
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} dataKey="amount" nameKey="name" innerRadius={58} outerRadius={92} paddingAngle={3}>
+              {data.map((entry, index) => (
+                <Cell key={entry.name} fill={colors[index % colors.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => formatMoney(Number(value))} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-3 space-y-1.5">
         {data.map((entry, index) => (
-          <div key={entry.name} className="flex items-center justify-between gap-3 text-sm">
-            <span className="flex min-w-0 items-center gap-2 text-[#465044]">
-              <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
-              <span className="truncate">{entry.name}</span>
-            </span>
-            <span className="shrink-0 font-semibold text-[#151813]">{formatMoney(entry.amount)}</span>
+          <div key={entry.name} className="flex items-center gap-2 text-sm">
+            <span
+              className="size-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: colors[index % colors.length] }}
+            />
+            <span className="min-w-0 flex-1 truncate text-[#465044]">{entry.name}</span>
+            <span className="shrink-0 font-semibold tabular-nums text-[#151813]">{formatMoney(entry.amount)}</span>
           </div>
         ))}
       </div>

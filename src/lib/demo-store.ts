@@ -108,6 +108,18 @@ export function demoCreateCategory(input: { name: string; type: TransactionType 
   return category;
 }
 
+export function demoDeleteCategory(id: string, userId: string) {
+  const store = getStore();
+  const index = store.categories.findIndex(
+    (c) => c.id === id && c.userId === userId
+  );
+
+  if (index === -1) return null;
+
+  const [deleted] = store.categories.splice(index, 1);
+  return deleted;
+}
+
 export function demoCategoryMatches(categoryId: string, type: TransactionType) {
   return getStore().categories.some((category) => category.id === categoryId && category.type === type);
 }

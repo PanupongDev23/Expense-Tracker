@@ -7,7 +7,7 @@ import { getDb } from "@/db";
 import { categories } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { isDemoUser } from "@/lib/demo-mode";
-import { demoCreateCategory, demoListCategories } from "@/lib/demo-store";
+import { demoCreateCategory, demoDeleteCategory, demoListCategories } from "@/lib/demo-store";
 import { categoryInputSchema, transactionTypeSchema } from "@/lib/validators";
 import type { ActionResult, CategoryOption, TransactionType } from "@/types/domain";
 
@@ -125,4 +125,40 @@ export async function createCategory(input: unknown): Promise<ActionResult<Categ
     },
     message: "เพิ่มหมวดหมู่สำเร็จ"
   };
+}
+
+export async function deleteCategory(id: string): Promise<ActionResult> {
+  const user = await requireUser();
+
+  if (isDemoUser(user.id)) {
+    const deleted = demoDeleteCategory(id, user.id);
+
+    if (!deleted) {
+      return { ok: false, message: "ไม่พบหมวดหมู่ หรือไม่มีสิทธิ์ลบ" };
+    }
+
+    revalidatePath("/settings");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/new");
+
+    return { ok: true, message: "ลบหมวดหมู่สำเร็จ" };
+  }
+
+  const db = getDb();
+
+  // ลบได้เฉพาะ category ของตัวเองเท่านั้น (userId ต้องตรง)
+  const [deleted] = await db
+    .delete(categories)
+    .where(and(eq(categories.id, id), eq(categories.userId, user.id)))
+    .returning({ id: categories.id });
+
+  if (!deleted) {
+    return { ok: false, message: "ไม่พบหมวดหมู่ หรือไม่มีสิทธิ์ลบ" };
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/transactions");
+  revalidatePath("/transactions/new");
+
+  return { ok: true, message: "ลบหมวดหมู่สำเร็จ" };
 }

@@ -17,9 +17,17 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function onDelete(id: string) {
+  function onDeleteClick(id: string) {
+    setConfirmId(id);
+  }
+
+  function onConfirmDelete() {
+    if (!confirmId) return;
+    const id = confirmId;
+    setConfirmId(null);
     setPendingId(id);
     setMessage(null);
 
@@ -38,6 +46,28 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
     <section className="rounded-lg border border-[#dedfd8] bg-white shadow-sm">
       {message ? (
         <div className="border-b border-[#eceee7] px-4 py-3 text-sm font-medium text-[#465044]">{message}</div>
+      ) : null}
+
+      {/* Confirm dialog */}
+      {confirmId ? (
+        <div className="border-b border-[#f0c9c2] bg-[#fff2ef] px-4 py-3 text-sm">
+          <p className="font-semibold text-[#9c2f1b]">ยืนยันการลบรายการนี้?</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-md bg-[#9c2f1b] px-3 text-xs font-semibold text-white transition hover:bg-[#7a2414]"
+              onClick={onConfirmDelete}
+              disabled={isPending}
+            >
+              ลบ
+            </button>
+            <button
+              className="inline-flex h-8 items-center justify-center rounded-md border border-[#d9dbd2] px-3 text-xs font-semibold text-[#465044] transition hover:bg-[#f3f4ef]"
+              onClick={() => setConfirmId(null)}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {transactions.length === 0 ? (
@@ -71,7 +101,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                   <td className="px-4 py-3 text-[#151813]">{transaction.categoryName}</td>
                   <td className="max-w-[220px] truncate px-4 py-3 text-[#67715f]">{transaction.note ?? "-"}</td>
                   <td
-                    className={`px-4 py-3 text-right font-semibold ${
+                    className={`px-4 py-3 text-right font-semibold tabular-nums ${
                       transaction.type === "income" ? "text-[#205b45]" : "text-[#9c2f1b]"
                     }`}
                   >
@@ -88,7 +118,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => onDelete(transaction.id)}
+                        onClick={() => onDeleteClick(transaction.id)}
                         disabled={isPending && pendingId === transaction.id}
                         className="inline-flex size-9 items-center justify-center rounded-md border border-[#f0c9c2] text-[#9c2f1b] transition hover:bg-[#fff2ef] disabled:opacity-60"
                         title="ลบ"
