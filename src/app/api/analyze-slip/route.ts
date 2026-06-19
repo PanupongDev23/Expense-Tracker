@@ -71,17 +71,25 @@ export async function POST(req: NextRequest) {
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const result = await model.generateContent([
-    buildPrompt(categoryLines),
-    {
-      inlineData: {
-        mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif",
-        data: base64
+  let text: string;
+  try {
+    const result = await model.generateContent([
+      buildPrompt(categoryLines),
+      {
+        inlineData: {
+          mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif",
+          data: base64
+        }
       }
+    ]);
+    text = result.response.text().trim();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("429")) {
+      return NextResponse.json({ error: "API Key เกิน quota กรุณาสร้าง Key ใหม่ที่ aistudio.google.com/apikey" }, { status: 429 });
     }
-  ]);
-
-  const text = result.response.text().trim();
+    return NextResponse.json({ error: "Gemini API error: " + msg.slice(0, 120) }, { status: 502 });
+  }
 
   let parsed: unknown;
   try {
