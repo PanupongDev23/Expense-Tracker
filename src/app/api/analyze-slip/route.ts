@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Expense Tracker"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-preview-05-20",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
