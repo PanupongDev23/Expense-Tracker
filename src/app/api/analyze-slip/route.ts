@@ -1,14 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
-import { listCategories } from "@/actions/categories";
 import { getCurrentUser } from "@/lib/auth";
 
-function buildPrompt(categoryLines: string[]) {
+function buildPrompt(categoryLines: string) {
   return `You are a Thai payment slip parser. Analyze this slip image and extract transaction details.
 
 The user has these categories (format: "id | name | type"):
-${categoryLines.join("\n")}
+${categoryLines}
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
 {
@@ -16,17 +15,16 @@ Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
   "merchant": <string, required — store or payee name>,
   "type": <"expense" | "income">,
   "categoryId": <string — best matching id from the list above, or null if none fits>,
-  "suggestedCategoryName": <string — the category name you matched, or a new name suggestion if no match>,
+  "suggestedCategoryName": <string — the category name you matched, or a new Thai name suggestion if no match>,
   "date": <string "YYYY-MM-DD" — use today if unclear>,
-  "note": <string — brief description, max 60 chars>
+  "note": <string — brief description in Thai, max 60 chars>
 }
 
 Rules:
 - amount must be a positive number (no currency symbol)
 - For PromptPay / bank transfers where money is received → type "income", else "expense"
 - categoryId must be an exact id from the list, or null if truly no match
-- date must be in YYYY-MM-DD format
-- If slip is in Thai, keep merchant and note in Thai`;
+- date must be in YYYY-MM-DD format`;
 }
 
 export async function POST(req: NextRequest) {
@@ -61,9 +59,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ขนาดไฟล์ต้องไม่เกิน 10MB" }, { status: 400 });
   }
 
-  // Fetch user's real categories
-  const categories = await listCategories();
-  const categoryLines = categories.map((c) => `${c.id} | ${c.name} | ${c.type}`);
+  // Categories sent from client (already loaded on the page)
+  const categoryLines = formData.get("categories") as string | null;
+  if (!categoryLines) {
+    return NextResponse.json({ error: "Missing categories" }, { status: 400 });
+  }
 
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");

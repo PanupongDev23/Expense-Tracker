@@ -71,6 +71,9 @@ export function SlipUploadModal({ categories: initialCategories, onClose }: Prop
 
     const fd = new FormData();
     fd.append("slip", file);
+    // Send categories from client so API route doesn't need a DB call
+    const categoryLines = categories.map((c) => `${c.id} | ${c.name} | ${c.type}`).join("\n");
+    fd.append("categories", categoryLines);
 
     try {
       const res = await fetch("/api/analyze-slip", { method: "POST", body: fd });
