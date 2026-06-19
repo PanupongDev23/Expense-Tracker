@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         "X-Title": "Expense Tracker"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: process.env.OPENROUTER_MODEL ?? "google/gemini-2.5-flash",
         messages: [
           {
             role: "user",
