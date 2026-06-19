@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 
 import { listCategories } from "@/actions/categories";
 import { listTransactions } from "@/actions/transactions";
+import { SlipUploadButton } from "@/components/transactions/slip-upload-button";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { TransactionTable } from "@/components/transactions/transaction-table";
 import { normalizeMonth } from "@/lib/dates";
@@ -33,13 +34,16 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
           <p className="text-sm font-medium text-[#67715f]">จัดการรายรับรายจ่าย</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-normal text-[#151813]">Transactions</h1>
         </div>
-        <Link
-          href="/transactions/new"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#205b45] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#184835]"
-        >
-          <Plus size={18} />
-          เพิ่มรายการ
-        </Link>
+        <div className="flex gap-2">
+          <SlipUploadButton categories={categories} />
+          <Link
+            href="/transactions/new"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[#205b45] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#184835]"
+          >
+            <Plus size={18} />
+            เพิ่มรายการ
+          </Link>
+        </div>
       </div>
 
       <TransactionFilters month={month} type={type ?? "all"} categoryId={categoryId} categories={categories} />
