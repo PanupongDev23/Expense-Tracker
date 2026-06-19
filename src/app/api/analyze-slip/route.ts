@@ -1,29 +1,22 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
+import { listCategories } from "@/actions/categories";
 import { getCurrentUser } from "@/lib/auth";
 
-const CATEGORY_LIST = [
-  "Food",
-  "Transport",
-  "Shopping",
-  "Bills",
-  "Health",
-  "Other (expense)",
-  "Salary",
-  "Freelance",
-  "Bonus",
-  "Other (income)"
-];
+function buildPrompt(categoryLines: string[]) {
+  return `You are a Thai payment slip parser. Analyze this slip image and extract transaction details.
 
-const PROMPT = `You are a Thai payment slip parser. Analyze this slip image and extract transaction details.
+The user has these categories (format: "id | name | type"):
+${categoryLines.join("\n")}
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
 {
   "amount": <number, required — the total paid amount>,
   "merchant": <string, required — store or payee name>,
   "type": <"expense" | "income">,
-  "category": <one of: ${CATEGORY_LIST.join(", ")}>,
+  "categoryId": <string — best matching id from the list above, or null if none fits>,
+  "suggestedCategoryName": <string — the category name you matched, or a new name suggestion if no match>,
   "date": <string "YYYY-MM-DD" — use today if unclear>,
   "note": <string — brief description, max 60 chars>
 }
@@ -31,8 +24,10 @@ Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
 Rules:
 - amount must be a positive number (no currency symbol)
 - For PromptPay / bank transfers where money is received → type "income", else "expense"
-- category must be exactly one value from the list above
-- date must be in YYYY-MM-DD format`;
+- categoryId must be an exact id from the list, or null if truly no match
+- date must be in YYYY-MM-DD format
+- If slip is in Thai, keep merchant and note in Thai`;
+}
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -66,6 +61,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ขนาดไฟล์ต้องไม่เกิน 10MB" }, { status: 400 });
   }
 
+  // Fetch user's real categories
+  const categories = await listCategories();
+  const categoryLines = categories.map((c) => `${c.id} | ${c.name} | ${c.type}`);
+
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");
 
@@ -73,7 +72,7 @@ export async function POST(req: NextRequest) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const result = await model.generateContent([
-    PROMPT,
+    buildPrompt(categoryLines),
     {
       inlineData: {
         mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif",
@@ -86,7 +85,6 @@ export async function POST(req: NextRequest) {
 
   let parsed: unknown;
   try {
-    // strip markdown code fences if model adds them
     const clean = text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "");
     parsed = JSON.parse(clean);
   } catch {

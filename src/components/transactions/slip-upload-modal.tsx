@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ImageUp, Loader2, ScanLine, X } from "lucide-react";
+import { ImageUp, Loader2, Plus, ScanLine, X } from "lucide-react";
 import { ChangeEvent, FormEvent, useMemo, useRef, useState, useTransition } from "react";
 
+import { createCategory } from "@/actions/categories";
 import { createTransaction } from "@/actions/transactions";
 import type { CategoryOption, TransactionType } from "@/types/domain";
 
@@ -11,7 +12,8 @@ type SlipResult = {
   amount: number;
   merchant: string;
   type: TransactionType;
-  category: string;
+  categoryId: string | null;
+  suggestedCategoryName: string | null;
   date: string;
   note: string;
 };
@@ -29,15 +31,18 @@ type Props = {
   onClose: () => void;
 };
 
-export function SlipUploadModal({ categories, onClose }: Props) {
+export function SlipUploadModal({ categories: initialCategories, onClose }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [categories, setCategories] = useState<CategoryOption[]>(initialCategories);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  const [suggestedCategory, setSuggestedCategory] = useState<{ name: string; type: TransactionType } | null>(null);
+  const [isAddingCategory, startAddCategoryTransition] = useTransition();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, startSaveTransition] = useTransition();
 
@@ -52,6 +57,7 @@ export function SlipUploadModal({ categories, onClose }: Props) {
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
     setForm(null);
+    setSuggestedCategory(null);
     setAnalyzeError(null);
     setSaveMessage(null);
   }
@@ -61,6 +67,7 @@ export function SlipUploadModal({ categories, onClose }: Props) {
     setIsAnalyzing(true);
     setAnalyzeError(null);
     setForm(null);
+    setSuggestedCategory(null);
 
     const fd = new FormData();
     fd.append("slip", file);
@@ -76,17 +83,23 @@ export function SlipUploadModal({ categories, onClose }: Props) {
 
       const data = json.data as SlipResult;
       const today = new Date().toISOString().slice(0, 10);
+      const type: TransactionType = data.type ?? "expense";
 
-      // match category name → id
-      const matched = categories.find(
-        (c) => c.type === data.type && c.name.toLowerCase() === data.category.toLowerCase()
-      );
-      const fallback = categories.find((c) => c.type === data.type);
+      // If AI matched a categoryId, use it; otherwise mark as unmatched
+      const matchedCat = data.categoryId
+        ? categories.find((c) => c.id === data.categoryId)
+        : null;
+
+      const fallbackCat = categories.find((c) => c.type === type);
+
+      if (!matchedCat && data.suggestedCategoryName) {
+        setSuggestedCategory({ name: data.suggestedCategoryName, type });
+      }
 
       setForm({
-        type: data.type ?? "expense",
+        type,
         amount: String(data.amount ?? ""),
-        categoryId: matched?.id ?? fallback?.id ?? "",
+        categoryId: matchedCat?.id ?? fallbackCat?.id ?? "",
         transactionDate: data.date ?? today,
         note: data.note ?? data.merchant ?? ""
       });
@@ -97,8 +110,27 @@ export function SlipUploadModal({ categories, onClose }: Props) {
     }
   }
 
+  function onAddSuggestedCategory() {
+    if (!suggestedCategory || !form) return;
+
+    startAddCategoryTransition(async () => {
+      const result = await createCategory({
+        name: suggestedCategory.name,
+        type: suggestedCategory.type
+      });
+
+      if (!result.ok || !result.data) return;
+
+      const newCat = result.data;
+      setCategories((prev) => [...prev, newCat]);
+      setForm((f) => f ? { ...f, categoryId: newCat.id } : f);
+      setSuggestedCategory(null);
+    });
+  }
+
   function setType(type: TransactionType) {
     const firstCat = categories.find((c) => c.type === type);
+    setSuggestedCategory(null);
     setForm((f) => f ? { ...f, type, categoryId: firstCat?.id ?? "" } : f);
   }
 
@@ -144,7 +176,7 @@ export function SlipUploadModal({ categories, onClose }: Props) {
           </button>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="max-h-[80vh] space-y-4 overflow-y-auto p-5">
           {/* Upload zone */}
           <div
             className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#c9d0c3] bg-[#f8f9f5] py-6 transition hover:border-[#205b45] hover:bg-[#eef8f2]"
@@ -254,16 +286,37 @@ export function SlipUploadModal({ categories, onClose }: Props) {
                 <select
                   className="mt-1 h-11 w-full rounded-md border border-[#d9dbd2] bg-white px-3 text-sm outline-none transition focus:border-[#205b45] focus:ring-2 focus:ring-[#c9dfd4]"
                   value={form.categoryId}
-                  onChange={(e) => setForm((f) => f ? { ...f, categoryId: e.target.value } : f)}
+                  onChange={(e) => {
+                    setForm((f) => f ? { ...f, categoryId: e.target.value } : f);
+                    setSuggestedCategory(null);
+                  }}
                   required
                 >
+                  <option value="" disabled>เลือกหมวดหมู่</option>
                   {matchingCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </label>
+
+              {/* Suggested new category banner */}
+              {suggestedCategory && (
+                <div className="flex items-center justify-between rounded-md border border-[#c9dfd4] bg-[#eef8f2] px-3 py-2">
+                  <p className="text-sm text-[#205b45]">
+                    AI แนะนำหมวดหมู่ใหม่:{" "}
+                    <span className="font-semibold">"{suggestedCategory.name}"</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onAddSuggestedCategory}
+                    disabled={isAddingCategory}
+                    className="ml-3 inline-flex shrink-0 items-center gap-1 rounded-md bg-[#205b45] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#184835] disabled:opacity-70"
+                  >
+                    {isAddingCategory ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                    เพิ่ม
+                  </button>
+                </div>
+              )}
 
               <label className="block">
                 <span className="text-sm font-semibold text-[#151813]">โน้ต</span>
@@ -285,14 +338,14 @@ export function SlipUploadModal({ categories, onClose }: Props) {
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setForm(null); setPreview(null); setFile(null); }}
+                  onClick={() => { setForm(null); setPreview(null); setFile(null); setSuggestedCategory(null); }}
                   className="inline-flex h-11 flex-1 items-center justify-center rounded-md border border-[#d9dbd2] text-sm font-semibold text-[#465044] transition hover:bg-[#eef1e8]"
                 >
                   สแกนใหม่
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || !form.categoryId}
                   className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-[#205b45] text-sm font-semibold text-white transition hover:bg-[#184835] disabled:opacity-70"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
