@@ -3,28 +3,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 
 function buildPrompt(categoryLines: string) {
-  return `You are a Thai payment slip / receipt parser. Analyze this image and extract transaction details.
+  return `You are a Thai payment slip / receipt parser. Analyze this image and extract all individual line items.
 
 The user has these categories (format: "id | name | type"):
 ${categoryLines}
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact shape:
 {
-  "amount": <number, required — the total paid amount>,
-  "merchant": <string, required — store or payee name>,
+  "merchant": <string — store or payee name, in Thai if applicable>,
+  "date": <string "YYYY-MM-DD" — transaction date, use today if unclear>,
   "type": <"expense" | "income">,
-  "categoryId": <string — best matching id from the list above, or null if none fits>,
-  "suggestedCategoryName": <string — the category name you matched, or a new Thai name suggestion if no match>,
-  "date": <string "YYYY-MM-DD" — use today if unclear>,
-  "note": <string — brief description in Thai, max 60 chars>
+  "items": [
+    {
+      "note": <string — item name/description in Thai, max 60 chars>,
+      "amount": <number — item price, positive, no currency symbol>,
+      "categoryId": <string — best matching id from category list, or null>,
+      "suggestedCategoryName": <string — matched category name, or new Thai suggestion if no match>
+    }
+  ]
 }
 
 Rules:
-- amount must be a positive number (no currency symbol)
-- For PromptPay / bank transfers where money is received → type "income", else "expense"
-- categoryId must be an exact id from the list, or null if truly no match
+- Extract EACH individual product/service as a separate item in the array
+- If the slip only shows a total (no line items), return a single item with the total amount
+- amount for each item must be positive
+- Do NOT include discount lines, tax lines, or subtotals as separate items — fold them into the relevant item or ignore
+- categoryId must be an exact id from the list above, or null
 - date must be in YYYY-MM-DD format
-- Keep merchant and note in Thai if the slip is in Thai`;
+- For PromptPay / bank transfers where money is received → type "income", else "expense"`;
 }
 
 export async function POST(req: NextRequest) {
