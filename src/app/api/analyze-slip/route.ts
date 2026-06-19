@@ -1,10 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 
 function buildPrompt(categoryLines: string) {
-  return `You are a Thai payment slip parser. Analyze this slip image and extract transaction details.
+  return `You are a Thai payment slip / receipt parser. Analyze this image and extract transaction details.
 
 The user has these categories (format: "id | name | type"):
 ${categoryLines}
@@ -24,7 +23,8 @@ Rules:
 - amount must be a positive number (no currency symbol)
 - For PromptPay / bank transfers where money is received → type "income", else "expense"
 - categoryId must be an exact id from the list, or null if truly no match
-- date must be in YYYY-MM-DD format`;
+- date must be in YYYY-MM-DD format
+- Keep merchant and note in Thai if the slip is in Thai`;
 }
 
 export async function POST(req: NextRequest) {
@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
+    return NextResponse.json({ error: "OpenRouter API key not configured" }, { status: 500 });
   }
 
   let formData: FormData;
@@ -59,7 +59,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ขนาดไฟล์ต้องไม่เกิน 10MB" }, { status: 400 });
   }
 
-  // Categories sent from client (already loaded on the page)
   const categoryLines = formData.get("categories") as string | null;
   if (!categoryLines) {
     return NextResponse.json({ error: "Missing categories" }, { status: 400 });
@@ -67,28 +66,44 @@ export async function POST(req: NextRequest) {
 
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const dataUrl = `data:${file.type};base64,${base64}`;
 
   let text: string;
   try {
-    const result = await model.generateContent([
-      buildPrompt(categoryLines),
-      {
-        inlineData: {
-          mimeType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif",
-          data: base64
-        }
-      }
-    ]);
-    text = result.response.text().trim();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("429")) {
-      return NextResponse.json({ error: "API Key เกิน quota กรุณาสร้าง Key ใหม่ที่ aistudio.google.com/apikey" }, { status: 429 });
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://expense-tracker-eta-three-42.vercel.app",
+        "X-Title": "Expense Tracker"
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: buildPrompt(categoryLines) },
+              { type: "image_url", image_url: { url: dataUrl } }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return NextResponse.json({ error: `OpenRouter error ${res.status}: ${errText.slice(0, 120)}` }, { status: 502 });
     }
-    return NextResponse.json({ error: "Gemini API error: " + msg.slice(0, 120) }, { status: 502 });
+
+    const json = await res.json();
+    text = (json.choices?.[0]?.message?.content ?? "").trim();
+  } catch (err) {
+    return NextResponse.json(
+      { error: "ไม่สามารถเชื่อมต่อ OpenRouter ได้: " + (err instanceof Error ? err.message : String(err)).slice(0, 80) },
+      { status: 502 }
+    );
   }
 
   let parsed: unknown;
