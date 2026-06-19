@@ -65,10 +65,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ขนาดไฟล์ต้องไม่เกิน 10MB" }, { status: 400 });
   }
 
-  const categoryLines = formData.get("categories") as string | null;
-  if (!categoryLines) {
-    return NextResponse.json({ error: "Missing categories" }, { status: 400 });
-  }
+  const categoryLines = (formData.get("categories") as string | null) ?? "";
 
   const bytes = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");
