@@ -87,13 +87,6 @@ export function LoginForm({ registered }: LoginFormProps) {
         </button>
       </form>
 
-      <a
-        className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#d9dbd2] bg-white px-4 text-sm font-semibold text-[#205b45] transition hover:bg-[#eef1e8] disabled:opacity-70"
-        href="/api/demo-login"
-      >
-        เข้าใช้งาน Demo
-      </a>
-
       <p className="mt-5 text-center text-sm text-[#67715f]">
         ยังไม่มีบัญชี?{" "}
         <Link className="font-semibold text-[#205b45] hover:underline" href="/register">
