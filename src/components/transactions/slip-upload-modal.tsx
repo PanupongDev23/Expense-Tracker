@@ -77,10 +77,16 @@ export function SlipUploadModal({ categories: initialCategories, onClose }: Prop
 
     try {
       const res = await fetch("/api/analyze-slip", { method: "POST", body: fd });
-      const json = await res.json();
+      let json: { ok?: boolean; error?: string; data?: SlipResult };
+      try {
+        json = await res.json();
+      } catch {
+        setAnalyzeError(`Server error ${res.status}: ไม่สามารถอ่าน response ได้`);
+        return;
+      }
 
       if (!res.ok || !json.ok) {
-        setAnalyzeError(json.error ?? "เกิดข้อผิดพลาด กรุณาลองใหม่");
+        setAnalyzeError(json.error ?? `Error ${res.status}`);
         return;
       }
 
@@ -106,8 +112,8 @@ export function SlipUploadModal({ categories: initialCategories, onClose }: Prop
         transactionDate: data.date ?? today,
         note: data.note ?? data.merchant ?? ""
       });
-    } catch {
-      setAnalyzeError("ไม่สามารถเชื่อมต่อได้ กรุณาลองใหม่");
+    } catch (err) {
+      setAnalyzeError(`Network error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsAnalyzing(false);
     }
